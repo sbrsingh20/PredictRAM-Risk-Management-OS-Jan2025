@@ -1,22 +1,18 @@
 import pandas as pd
-import yfinance as yf
 import streamlit as st
 import plotly.express as px
-import plotly.graph_objects as go
+import yfinance as yf
+import dash_table
 
-# Define the path to your Excel files
+# Read data from the original Excel file
 file_path = "merged_stock_data_with_categories_in_cells_nov2024.xlsx"
+df = pd.read_excel(file_path)
+
+# Read data from the additional Excel file with calculated metrics
 metrics_file_path = "calculated_stock_metrics_full.xlsx"
+metrics_df = pd.read_excel(metrics_file_path)
 
-# Try to read data from Excel files
-try:
-    df = pd.read_excel(file_path, engine='openpyxl')
-    metrics_df = pd.read_excel(metrics_file_path, engine='openpyxl')
-except Exception as e:
-    st.error(f"Error loading Excel files: {e}")
-    st.stop()
-
-# Categories and risk thresholds from the original code
+# Categories and risk thresholds
 risk_categories = {
     "Market Risk": {
         "Volatility": (0.1, 0.2),
@@ -83,7 +79,7 @@ def calculate_risk_parameters(stock_symbols):
         stock_info = df[df['Stock Symbol'] == stock_symbol]
 
         if stock_info.empty:
-            st.warning(f"No data found for stock symbol: {stock_symbol}")
+            print(f"No data found for stock symbol: {stock_symbol}")
             continue
 
         stock_info = stock_info.iloc[0]  # Get the first row for the stock
@@ -141,56 +137,57 @@ def calculate_risk_parameters(stock_symbols):
 
     return results, category_scores, stock_scores, total_portfolio_score
 
-# Define the Streamlit app layout
+# Streamlit layout
 st.title("Real-Time Risk Management Dashboard")
 
 # Dropdown for stock selection
-stock_symbols = df['Stock Symbol'].unique()
-selected_stocks = st.multiselect("Select Stocks", stock_symbols, default=stock_symbols[0])
+selected_stocks = st.multiselect(
+    "Select Stocks",
+    options=df['Stock Symbol'].unique(),
+    default=df['Stock Symbol'].unique()[0],
+)
 
-# Risk summary section
-results, category_scores, stock_scores, total_portfolio_score = calculate_risk_parameters(selected_stocks)
-
-# Display Risk Meter for Market, Financial, Liquidity Risks
+# Display risk category overview
 st.subheader("Risk Category Overview")
 
-# Risk Meters (Market Risk, Financial Risk, Liquidity Risk)
-for category, score in category_scores.items():
-    st.metric(
-        label=f"{category} Risk",
-        value=score,
-        delta="Improvement" if score > 0 else "Decline",
-        delta_color="normal" if score == 0 else "inverse"
-    )
+results, category_scores, stock_scores, total_portfolio_score = calculate_risk_parameters(selected_stocks)
 
-# Visualize the investment score bar chart
+market_risk_data = [result for result in results if result['Category'] == 'Market Risk']
+financial_risk_data = [result for result in results if result['Category'] == 'Financial Risk']
+liquidity_risk_data = [result for result in results if result['Category'] == 'Liquidity Risk']
+
+# Market Risk Table
+st.write("### Market Risk")
+st.dataframe(pd.DataFrame(market_risk_data))
+
+# Financial Risk Table
+st.write("### Financial Risk")
+st.dataframe(pd.DataFrame(financial_risk_data))
+
+# Liquidity Risk Table
+st.write("### Liquidity Risk")
+st.dataframe(pd.DataFrame(liquidity_risk_data))
+
+# Investment Scores Visualization
 st.subheader("Investment Scores Visualization")
+
 investment_data = [{"Stock Symbol": stock, "Investment Score": score} for stock, score in stock_scores.items()]
 investment_df = pd.DataFrame(investment_data)
 fig = px.bar(investment_df, x="Stock Symbol", y="Investment Score", title="Investment Scores for Selected Stocks")
 st.plotly_chart(fig)
 
-# Portfolio Score
-st.subheader("Total Portfolio Score")
+# Portfolio Score Table
+st.write("### Total Portfolio Score")
+st.dataframe(pd.DataFrame([{"Portfolio Score": total_portfolio_score}]))
+
+# Display summary
+st.subheader("Summary")
 st.write(f"Total Portfolio Score: {total_portfolio_score}")
+for category, score in category_scores.items():
+    st.write(f"{category}: {score}")
 
-# Risk details in tables
-st.subheader("Risk Details")
-market_risk_data = [result for result in results if result['Category'] == "Market Risk"]
-financial_risk_data = [result for result in results if result['Category'] == "Financial Risk"]
-liquidity_risk_data = [result for result in results if result['Category'] == "Liquidity Risk"]
-
-st.write("### Market Risk Data")
-st.write(market_risk_data)
-
-st.write("### Financial Risk Data")
-st.write(financial_risk_data)
-
-st.write("### Liquidity Risk Data")
-st.write(liquidity_risk_data)
-
-# Additional metrics for the selected stocks
+# Additional metrics
 st.subheader("Additional Stock Metrics")
 metrics_data = metrics_df[metrics_df['Stock Symbol'].isin(selected_stocks)].to_dict('records')
-st.write(metrics_data)
+st.dataframe(pd.DataFrame(metrics_data))
 
