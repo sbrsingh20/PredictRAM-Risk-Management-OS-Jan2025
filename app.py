@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
 import yfinance as yf
 import dash_table
 
@@ -137,6 +138,25 @@ def calculate_risk_parameters(stock_symbols):
 
     return results, category_scores, stock_scores, total_portfolio_score
 
+def create_risk_meter(category, score, max_score=10):
+    """Creates a risk meter visualization for each category."""
+    meter = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=score,
+        delta={'reference': 0},
+        gauge={
+            'axis': {'range': [0, max_score]},
+            'bar': {'color': get_risk_color("Good" if score >= 7 else "Neutral" if score >= 4 else "Bad")},
+            'steps': [
+                {'range': [0, 4], 'color': "red"},
+                {'range': [4, 7], 'color': "yellow"},
+                {'range': [7, max_score], 'color': "green"},
+            ],
+        },
+        title={'text': category},
+    ))
+    return meter
+
 # Streamlit layout
 st.title("Real-Time Risk Management Dashboard")
 
@@ -152,25 +172,28 @@ st.subheader("Risk Category Overview")
 
 results, category_scores, stock_scores, total_portfolio_score = calculate_risk_parameters(selected_stocks)
 
-market_risk_data = [result for result in results if result['Category'] == 'Market Risk']
-financial_risk_data = [result for result in results if result['Category'] == 'Financial Risk']
-liquidity_risk_data = [result for result in results if result['Category'] == 'Liquidity Risk']
+# Visualize risk meters for each category
+st.subheader("Risk Meters")
+for category, score in category_scores.items():
+    st.plotly_chart(create_risk_meter(category, score))
 
 # Market Risk Table
+market_risk_data = [result for result in results if result['Category'] == 'Market Risk']
 st.write("### Market Risk")
 st.dataframe(pd.DataFrame(market_risk_data))
 
 # Financial Risk Table
+financial_risk_data = [result for result in results if result['Category'] == 'Financial Risk']
 st.write("### Financial Risk")
 st.dataframe(pd.DataFrame(financial_risk_data))
 
 # Liquidity Risk Table
+liquidity_risk_data = [result for result in results if result['Category'] == 'Liquidity Risk']
 st.write("### Liquidity Risk")
 st.dataframe(pd.DataFrame(liquidity_risk_data))
 
 # Investment Scores Visualization
 st.subheader("Investment Scores Visualization")
-
 investment_data = [{"Stock Symbol": stock, "Investment Score": score} for stock, score in stock_scores.items()]
 investment_df = pd.DataFrame(investment_data)
 fig = px.bar(investment_df, x="Stock Symbol", y="Investment Score", title="Investment Scores for Selected Stocks")
@@ -190,4 +213,3 @@ for category, score in category_scores.items():
 st.subheader("Additional Stock Metrics")
 metrics_data = metrics_df[metrics_df['Stock Symbol'].isin(selected_stocks)].to_dict('records')
 st.dataframe(pd.DataFrame(metrics_data))
-
