@@ -138,8 +138,8 @@ def calculate_risk_parameters(stock_symbols):
 
     return results, category_scores, stock_scores, total_portfolio_score
 
-def create_risk_meter(category, score, max_score=10):
-    """Creates a risk meter visualization for each category."""
+def create_risk_meter(stock_symbol, category, score, max_score=10):
+    """Creates a risk meter visualization for each category for each stock."""
     meter = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=score,
@@ -153,7 +153,7 @@ def create_risk_meter(category, score, max_score=10):
                 {'range': [7, max_score], 'color': "green"},
             ],
         },
-        title={'text': category},
+        title={'text': f"{stock_symbol} - {category}"},
     ))
     return meter
 
@@ -172,10 +172,30 @@ st.subheader("Risk Category Overview")
 
 results, category_scores, stock_scores, total_portfolio_score = calculate_risk_parameters(selected_stocks)
 
-# Visualize risk meters for each category
-st.subheader("Risk Meters")
-for category, score in category_scores.items():
-    st.plotly_chart(create_risk_meter(category, score))
+# Visualize risk meters for each stock and each category
+st.subheader("Risk Meters for Selected Stocks")
+for stock_symbol in selected_stocks:
+    st.write(f"### {stock_symbol}")
+    # Calculate individual risk scores for each stock and category
+    stock_category_scores = {category: 0 for category in risk_categories}
+    
+    # Calculate stock-specific scores
+    for category, parameters in risk_categories.items():
+        stock_category_score = 0
+        for param, thresholds in parameters.items():
+            stock_info = df[df['Stock Symbol'] == stock_symbol].iloc[0]
+            value = stock_info.get(param)
+            if value is not None:
+                risk_level = categorize_risk(value, thresholds)
+                if risk_level == "Good":
+                    stock_category_score += 1
+                elif risk_level == "Bad":
+                    stock_category_score -= 1
+        stock_category_scores[category] = stock_category_score
+
+    # Create and display risk meters for each category
+    for category, score in stock_category_scores.items():
+        st.plotly_chart(create_risk_meter(stock_symbol, category, score))
 
 # Market Risk Table
 market_risk_data = [result for result in results if result['Category'] == 'Market Risk']
