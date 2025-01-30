@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
-import plotly.express as px
 import plotly.graph_objects as go
+import plotly.express as px
 import yfinance as yf
 
 # Read data from the original Excel file
@@ -152,61 +152,69 @@ st.subheader("Risk Category Overview")
 
 results, category_scores, stock_scores, total_portfolio_score = calculate_risk_parameters(selected_stocks)
 
-market_risk_data = [result for result in results if result['Category'] == 'Market Risk']
-financial_risk_data = [result for result in results if result['Category'] == 'Financial Risk']
-liquidity_risk_data = [result for result in results if result['Category'] == 'Liquidity Risk']
+# Display individual stock meters and their risks
+for stock_symbol in selected_stocks:
+    st.write(f"### {stock_symbol} - Risk Meters")
+    
+    # Market Risk Meter for each stock
+    stock_market_risk_score = sum([1 for result in results if result['Stock Symbol'] == stock_symbol and result['Category'] == 'Market Risk' and result['Risk Level'] == 'Good'])
+    fig_market = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=stock_market_risk_score,
+        title={"text": f"{stock_symbol} - Market Risk", "font": {"size": 16}},
+        gauge={"axis": {"range": [None, 5]}, "steps": [
+            {"range": [0, 2], "color": "green"},
+            {"range": [2, 3], "color": "yellow"},
+            {"range": [3, 5], "color": "red"}],
+        },
+    ))
+    st.plotly_chart(fig_market)
 
-# Market Risk Meter
-st.write("### Market Risk Meter")
-market_risk_score = category_scores['Market Risk']
-market_risk_color = get_risk_color("Good" if market_risk_score > 0 else "Bad")
-fig_market = go.Figure(go.Indicator(
+    # Financial Risk Meter for each stock
+    stock_financial_risk_score = sum([1 for result in results if result['Stock Symbol'] == stock_symbol and result['Category'] == 'Financial Risk' and result['Risk Level'] == 'Good'])
+    fig_financial = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=stock_financial_risk_score,
+        title={"text": f"{stock_symbol} - Financial Risk", "font": {"size": 16}},
+        gauge={"axis": {"range": [None, 5]}, "steps": [
+            {"range": [0, 2], "color": "green"},
+            {"range": [2, 3], "color": "yellow"},
+            {"range": [3, 5], "color": "red"}],
+        },
+    ))
+    st.plotly_chart(fig_financial)
+
+    # Liquidity Risk Meter for each stock
+    stock_liquidity_risk_score = sum([1 for result in results if result['Stock Symbol'] == stock_symbol and result['Category'] == 'Liquidity Risk' and result['Risk Level'] == 'Good'])
+    fig_liquidity = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=stock_liquidity_risk_score,
+        title={"text": f"{stock_symbol} - Liquidity Risk", "font": {"size": 16}},
+        gauge={"axis": {"range": [None, 5]}, "steps": [
+            {"range": [0, 2], "color": "green"},
+            {"range": [2, 3], "color": "yellow"},
+            {"range": [3, 5], "color": "red"}],
+        },
+    ))
+    st.plotly_chart(fig_liquidity)
+
+# Portfolio-wide Risk Meter
+st.write("### Overall Portfolio Risk Meter")
+portfolio_risk_score = sum([score for stock, score in stock_scores.items()])
+fig_portfolio = go.Figure(go.Indicator(
     mode="gauge+number",
-    value=market_risk_score,
-    title={"text": "Market Risk", "font": {"size": 24}},
-    gauge={"axis": {"range": [None, 5]}, "steps": [
-        {"range": [0, 2], "color": "green"},
-        {"range": [2, 3], "color": "yellow"},
-        {"range": [3, 5], "color": "red"}],
+    value=portfolio_risk_score,
+    title={"text": "Overall Portfolio Risk", "font": {"size": 24}},
+    gauge={"axis": {"range": [None, len(selected_stocks) * 3]}, "steps": [
+        {"range": [0, len(selected_stocks)], "color": "green"},
+        {"range": [len(selected_stocks), len(selected_stocks) * 2], "color": "yellow"},
+        {"range": [len(selected_stocks) * 2, len(selected_stocks) * 3], "color": "red"}],
     },
 ))
-st.plotly_chart(fig_market)
-
-# Financial Risk Meter
-st.write("### Financial Risk Meter")
-financial_risk_score = category_scores['Financial Risk']
-financial_risk_color = get_risk_color("Good" if financial_risk_score > 0 else "Bad")
-fig_financial = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=financial_risk_score,
-    title={"text": "Financial Risk", "font": {"size": 24}},
-    gauge={"axis": {"range": [None, 5]}, "steps": [
-        {"range": [0, 2], "color": "green"},
-        {"range": [2, 3], "color": "yellow"},
-        {"range": [3, 5], "color": "red"}],
-    },
-))
-st.plotly_chart(fig_financial)
-
-# Liquidity Risk Meter
-st.write("### Liquidity Risk Meter")
-liquidity_risk_score = category_scores['Liquidity Risk']
-liquidity_risk_color = get_risk_color("Good" if liquidity_risk_score > 0 else "Bad")
-fig_liquidity = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=liquidity_risk_score,
-    title={"text": "Liquidity Risk", "font": {"size": 24}},
-    gauge={"axis": {"range": [None, 5]}, "steps": [
-        {"range": [0, 2], "color": "green"},
-        {"range": [2, 3], "color": "yellow"},
-        {"range": [3, 5], "color": "red"}],
-    },
-))
-st.plotly_chart(fig_liquidity)
+st.plotly_chart(fig_portfolio)
 
 # Investment Scores Visualization
 st.subheader("Investment Scores Visualization")
-
 investment_data = [{"Stock Symbol": stock, "Investment Score": score} for stock, score in stock_scores.items()]
 investment_df = pd.DataFrame(investment_data)
 fig = px.bar(investment_df, x="Stock Symbol", y="Investment Score", title="Investment Scores for Selected Stocks")
