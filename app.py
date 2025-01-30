@@ -4,12 +4,17 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Load the stock data and metrics
+# Define the path to your Excel files
 file_path = "merged_stock_data_with_categories_in_cells_nov2024.xlsx"
-df = pd.read_excel(file_path)
-
 metrics_file_path = "calculated_stock_metrics_full.xlsx"
-metrics_df = pd.read_excel(metrics_file_path)
+
+# Try to read data from Excel files
+try:
+    df = pd.read_excel(file_path, engine='openpyxl')
+    metrics_df = pd.read_excel(metrics_file_path, engine='openpyxl')
+except Exception as e:
+    st.error(f"Error loading Excel files: {e}")
+    st.stop()
 
 # Categories and risk thresholds from the original code
 risk_categories = {
@@ -78,7 +83,7 @@ def calculate_risk_parameters(stock_symbols):
         stock_info = df[df['Stock Symbol'] == stock_symbol]
 
         if stock_info.empty:
-            print(f"No data found for stock symbol: {stock_symbol}")
+            st.warning(f"No data found for stock symbol: {stock_symbol}")
             continue
 
         stock_info = stock_info.iloc[0]  # Get the first row for the stock
@@ -136,97 +141,56 @@ def calculate_risk_parameters(stock_symbols):
 
     return results, category_scores, stock_scores, total_portfolio_score
 
-def create_risk_meter(risk_score, max_score=5):
-    """Creates a gauge meter visualization for risk categories."""
-    color = 'green' if risk_score > 0 else 'red' if risk_score < 0 else 'yellow'
-    fig = go.Figure(go.Gauge(
-        gauge={'axis': {'range': [None, max_score]}},
-        value=risk_score,
-        title={'text': f"Risk Meter: {color.capitalize()}"}, 
-        delta={'reference': 0},
-        domain={'x': [0, 1], 'y': [0, 1]},
-        marker={'color': color, 'size': 35},
-    ))
-    return fig
-
-# Streamlit interface
+# Define the Streamlit app layout
 st.title("Real-Time Risk Management Dashboard")
 
-# Stock selection dropdown
-selected_stocks = st.multiselect(
-    "Select Stocks", options=df['Stock Symbol'].unique(), default=df['Stock Symbol'].unique()[0:3]
-)
+# Dropdown for stock selection
+stock_symbols = df['Stock Symbol'].unique()
+selected_stocks = st.multiselect("Select Stocks", stock_symbols, default=stock_symbols[0])
 
-# Calculate risk parameters
-if selected_stocks:
-    results, category_scores, stock_scores, total_portfolio_score = calculate_risk_parameters(selected_stocks)
+# Risk summary section
+results, category_scores, stock_scores, total_portfolio_score = calculate_risk_parameters(selected_stocks)
 
-    # Display stock-specific risk meters
-    for stock_symbol in selected_stocks:
-        st.subheader(f"Risk Meter for {stock_symbol}")
-        stock_score = stock_scores.get(stock_symbol, 0)
-        risk_level = "Good" if stock_score > 0 else "Bad" if stock_score < 0 else "Neutral"
-        color = get_risk_color(risk_level)
+# Display Risk Meter for Market, Financial, Liquidity Risks
+st.subheader("Risk Category Overview")
 
-        st.markdown(f"<h3 style='color:{color};'>{stock_symbol} - {risk_level}</h3>", unsafe_allow_html=True)
+# Risk Meters (Market Risk, Financial Risk, Liquidity Risk)
+for category, score in category_scores.items():
+    st.metric(
+        label=f"{category} Risk",
+        value=score,
+        delta="Improvement" if score > 0 else "Decline",
+        delta_color="normal" if score == 0 else "inverse"
+    )
 
-    # Portfolio risk overview
-    st.subheader("Overall Portfolio Risk")
-    portfolio_risk_level = "Good" if total_portfolio_score > 0 else "Bad" if total_portfolio_score < 0 else "Neutral"
-    portfolio_color = get_risk_color(portfolio_risk_level)
-    st.markdown(f"<h3 style='color:{portfolio_color};'>Portfolio Risk Level: {portfolio_risk_level}</h3>", unsafe_allow_html=True)
+# Visualize the investment score bar chart
+st.subheader("Investment Scores Visualization")
+investment_data = [{"Stock Symbol": stock, "Investment Score": score} for stock, score in stock_scores.items()]
+investment_df = pd.DataFrame(investment_data)
+fig = px.bar(investment_df, x="Stock Symbol", y="Investment Score", title="Investment Scores for Selected Stocks")
+st.plotly_chart(fig)
 
-    # Risk meters for categories (Market, Financial, Liquidity)
-    st.subheader("Risk Meters for Categories")
-    
-    # Create a risk meter for each category
-    market_risk_score = category_scores["Market Risk"]
-    financial_risk_score = category_scores["Financial Risk"]
-    liquidity_risk_score = category_scores["Liquidity Risk"]
+# Portfolio Score
+st.subheader("Total Portfolio Score")
+st.write(f"Total Portfolio Score: {total_portfolio_score}")
 
-    # Market Risk Meter
-    st.write("**Market Risk Meter**")
-    st.plotly_chart(create_risk_meter(market_risk_score))
+# Risk details in tables
+st.subheader("Risk Details")
+market_risk_data = [result for result in results if result['Category'] == "Market Risk"]
+financial_risk_data = [result for result in results if result['Category'] == "Financial Risk"]
+liquidity_risk_data = [result for result in results if result['Category'] == "Liquidity Risk"]
 
-    # Financial Risk Meter
-    st.write("**Financial Risk Meter**")
-    st.plotly_chart(create_risk_meter(financial_risk_score))
+st.write("### Market Risk Data")
+st.write(market_risk_data)
 
-    # Liquidity Risk Meter
-    st.write("**Liquidity Risk Meter**")
-    st.plotly_chart(create_risk_meter(liquidity_risk_score))
+st.write("### Financial Risk Data")
+st.write(financial_risk_data)
 
-    # Risk tables
-    st.subheader("Risk Overview by Category")
+st.write("### Liquidity Risk Data")
+st.write(liquidity_risk_data)
 
-    market_risk_data = [r for r in results if r['Category'] == "Market Risk"]
-    financial_risk_data = [r for r in results if r['Category'] == "Financial Risk"]
-    liquidity_risk_data = [r for r in results if r['Category'] == "Liquidity Risk"]
+# Additional metrics for the selected stocks
+st.subheader("Additional Stock Metrics")
+metrics_data = metrics_df[metrics_df['Stock Symbol'].isin(selected_stocks)].to_dict('records')
+st.write(metrics_data)
 
-    # Display data tables for each risk category
-    st.write("**Market Risk**")
-    st.dataframe(pd.DataFrame(market_risk_data))
-
-    st.write("**Financial Risk**")
-    st.dataframe(pd.DataFrame(financial_risk_data))
-
-    st.write("**Liquidity Risk**")
-    st.dataframe(pd.DataFrame(liquidity_risk_data))
-
-    # Portfolio score table
-    st.subheader("Portfolio Score Table")
-    st.write(f"Total Portfolio Score: {total_portfolio_score}")
-
-    # Investment Scores Visualization (Bar Chart)
-    investment_data = [{"Stock Symbol": stock, "Investment Score": score} for stock, score in stock_scores.items()]
-    investment_df = pd.DataFrame(investment_data)
-
-    fig = px.bar(investment_df, x="Stock Symbol", y="Investment Score", title="Investment Scores for Selected Stocks")
-    st.plotly_chart(fig)
-
-    # Additional metrics for selected stocks
-    st.subheader("Additional Stock Metrics")
-    metrics_data = metrics_df[metrics_df['Stock Symbol'].isin(selected_stocks)].to_dict('records')
-    st.write(pd.DataFrame(metrics_data))
-else:
-    st.write("Please select at least one stock.")
