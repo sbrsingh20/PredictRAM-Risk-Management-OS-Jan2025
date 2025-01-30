@@ -136,6 +136,19 @@ def calculate_risk_parameters(stock_symbols):
 
     return results, category_scores, stock_scores, total_portfolio_score
 
+def create_risk_meter(risk_score, max_score=5):
+    """Creates a gauge meter visualization for risk categories."""
+    color = 'green' if risk_score > 0 else 'red' if risk_score < 0 else 'yellow'
+    fig = go.Figure(go.Gauge(
+        gauge={'axis': {'range': [None, max_score]}},
+        value=risk_score,
+        title={'text': f"Risk Meter: {color.capitalize()}"}, 
+        delta={'reference': 0},
+        domain={'x': [0, 1], 'y': [0, 1]},
+        marker={'color': color, 'size': 35},
+    ))
+    return fig
+
 # Streamlit interface
 st.title("Real-Time Risk Management Dashboard")
 
@@ -162,6 +175,26 @@ if selected_stocks:
     portfolio_risk_level = "Good" if total_portfolio_score > 0 else "Bad" if total_portfolio_score < 0 else "Neutral"
     portfolio_color = get_risk_color(portfolio_risk_level)
     st.markdown(f"<h3 style='color:{portfolio_color};'>Portfolio Risk Level: {portfolio_risk_level}</h3>", unsafe_allow_html=True)
+
+    # Risk meters for categories (Market, Financial, Liquidity)
+    st.subheader("Risk Meters for Categories")
+    
+    # Create a risk meter for each category
+    market_risk_score = category_scores["Market Risk"]
+    financial_risk_score = category_scores["Financial Risk"]
+    liquidity_risk_score = category_scores["Liquidity Risk"]
+
+    # Market Risk Meter
+    st.write("**Market Risk Meter**")
+    st.plotly_chart(create_risk_meter(market_risk_score))
+
+    # Financial Risk Meter
+    st.write("**Financial Risk Meter**")
+    st.plotly_chart(create_risk_meter(financial_risk_score))
+
+    # Liquidity Risk Meter
+    st.write("**Liquidity Risk Meter**")
+    st.plotly_chart(create_risk_meter(liquidity_risk_score))
 
     # Risk tables
     st.subheader("Risk Overview by Category")
