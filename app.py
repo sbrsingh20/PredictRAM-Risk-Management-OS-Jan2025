@@ -15,12 +15,12 @@ metrics_df = pd.read_excel(metrics_file_path)
 
 # Categories and risk thresholds
 risk_categories = {
-    "Market Risk": {
+    "Market Score": {
         "Volatility": (0.1, 0.2),
         "Beta": (0.5, 1.5),
         "Correlation with ^NSEI": (0.7, 1),
     },
-    "Financial Risk": {
+    "Risk Score": {
         "debtToEquity": (0.5, 1.5),
         "currentRatio": (1.5, 2),
         "quickRatio": (1, 1.5),
@@ -28,7 +28,7 @@ risk_categories = {
         "returnOnAssets": (10, 20),
         "returnOnEquity": (15, 25),
     },
-    "Liquidity Risk": {
+    "Liquidity Score": {
         "Volume": (1_000_000, float('inf')),
         "Average Volume": (500_000, 1_000_000),
         "marketCap": (10_000_000_000, float('inf')),
@@ -172,11 +172,11 @@ st.subheader("Risk Category Overview")
 
 results, category_scores, stock_scores, total_portfolio_score = calculate_risk_parameters(selected_stocks)
 
-# Visualize risk meters for each stock and each category
-st.subheader("Risk Meters for Selected Stocks")
+# Visualize score meters for each stock and each category
+st.subheader("Score Meters for Selected Stocks")
 for stock_symbol in selected_stocks:
     st.write(f"### {stock_symbol}")
-    # Calculate individual risk scores for each stock and category
+    # Calculate individual score for each stock and category
     stock_category_scores = {category: 0 for category in risk_categories}
     
     # Calculate stock-specific scores
@@ -193,24 +193,24 @@ for stock_symbol in selected_stocks:
                     stock_category_score -= 1
         stock_category_scores[category] = stock_category_score
 
-    # Create and display risk meters for each category
+    # Create and display score meters for each category
     for category, score in stock_category_scores.items():
         st.plotly_chart(create_risk_meter(stock_symbol, category, score))
 
-# Market Risk Table
-market_risk_data = [result for result in results if result['Category'] == 'Market Risk']
-st.write("### Market Risk")
-st.dataframe(pd.DataFrame(market_risk_data))
+# Market Score Table
+market_score_data = [result for result in results if result['Category'] == 'Market Score']
+st.write("### Market Score")
+st.dataframe(pd.DataFrame(market_score_data))
 
-# Financial Risk Table
-financial_risk_data = [result for result in results if result['Category'] == 'Financial Risk']
-st.write("### Financial Risk")
-st.dataframe(pd.DataFrame(financial_risk_data))
+# Risk Score Table
+risk_score_data = [result for result in results if result['Category'] == 'Risk Score']
+st.write("### Risk Score")
+st.dataframe(pd.DataFrame(risk_score_data))
 
-# Liquidity Risk Table
-liquidity_risk_data = [result for result in results if result['Category'] == 'Liquidity Risk']
-st.write("### Liquidity Risk")
-st.dataframe(pd.DataFrame(liquidity_risk_data))
+# Liquidity Score Table
+liquidity_score_data = [result for result in results if result['Category'] == 'Liquidity Score']
+st.write("### Liquidity Score")
+st.dataframe(pd.DataFrame(liquidity_score_data))
 
 # Investment Scores Visualization
 st.subheader("Investment Scores Visualization")
